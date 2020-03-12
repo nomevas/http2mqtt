@@ -38,7 +38,7 @@ public:
   void WriteResponse(const Response& response) {
     response_.version(request_.version());
     response_.keep_alive(false);
-    response_.result(response.result);
+    response_.result(response.status);
 
     response_.set(http::field::content_type, "application/json");
     boost::beast::ostream(response_.body()) << response.body;

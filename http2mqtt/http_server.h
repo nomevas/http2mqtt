@@ -26,7 +26,7 @@ struct Request {
 
 struct Response {
   RequestID request_id;
-  HttpStatusCode result;
+  HttpStatusCode status;
   Body body;
 };
 
