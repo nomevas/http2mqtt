@@ -13,6 +13,5 @@ find_package(Boost REQUIRED COMPONENTS system date_time thread)
 include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
 
 add_subdirectory(mqtt_client)
-add_subdirectory(client)
 add_subdirectory(http2mqtt)
-add_subdirectory(request_handler)
+add_subdirectory(daemon)
