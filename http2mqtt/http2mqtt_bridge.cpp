@@ -13,13 +13,21 @@ Http2MqttBridge::Http2MqttBridge(
     , mqtt_client_{mqtt_client}
     , http_server_{http_server} {
   http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Request& request) {
-    const tao::json::value request_json(
-        {
-          {"session_id", session_id},
-          {"body", request.body()}
+    tao::json::value request_json({
+            {"session_id", session_id},
+            {"body", request.body()}
         });
 
-    const auto topic = root_topic + boost::lexical_cast<std::string>(request.target()) + "/" + boost::lexical_cast<std::string>(request.method_string());
+    std::string target = boost::lexical_cast<std::string>(request.target());
+
+    auto query_position = target.find('?');
+    if (query_position != std::string::npos) {
+      auto temp = target.substr(query_position + 1);
+      request_json["query_arguments"] = target.substr(query_position + 1);
+      target = target.substr(0, query_position);
+    }
+
+    const auto topic = root_topic + target + "/" + boost::lexical_cast<std::string>(request.method_string());
     mqtt_client->Publish(topic, tao::json::to_string(request_json), MQTT_NS::qos::at_most_once);
   });
 
