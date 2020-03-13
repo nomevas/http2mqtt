@@ -5,30 +5,35 @@
 #include "http2mqtt_bridge.h"
 
 #include <tao/json.hpp>
+#include <boost/lexical_cast.hpp>
 
 Http2MqttBridge::Http2MqttBridge(
-    std::shared_ptr<HttpServer> http_server, std::shared_ptr<MqttClient> mqtt_client)
-    : mqtt_client_{mqtt_client}
+    const Topic& request_root_topic, std::shared_ptr<HttpServer> http_server, std::shared_ptr<MqttClient> mqtt_client)
+    : request_root_topic_{request_root_topic}
+    , mqtt_client_{mqtt_client}
     , http_server_{http_server} {
-  http_server_->SetRequestHandler([mqtt_client = mqtt_client_](const Request& request) {
+  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Request& request) {
     const tao::json::value request_json(
         {
-          {"request", request.id},
-          {"body", request.body}
+          {"session_id", session_id},
+          {"body", request.body()}
         });
 
-    mqtt_client->Publish(
-        "http2mqtt/" + request.target + "/" + request.method,
-        tao::json::to_string(request_json),
-        MQTT_NS::qos::at_most_once);
+    const auto topic = root_topic + boost::lexical_cast<std::string>(request.target()) + "/" + boost::lexical_cast<std::string>(request.method_string());
+    mqtt_client->Publish(topic, tao::json::to_string(request_json), MQTT_NS::qos::at_most_once);
   });
 
-  mqtt_client_->Subscribe("http2mqtt/response", [http_server = http_server_](const Topic& topic, const Message& message) {
+  mqtt_client_->Subscribe(request_root_topic_ + "/response", [http_server = http_server_](const Topic& topic, const Message& message) {
     const tao::json::value request_json(message);
+
     Response response;
-    response.request_id = request_json.as<unsigned long>("request_id");
-    response.status = request_json.as<unsigned short>("status");
-    response.body = request_json.as<unsigned short>("body");
-    http_server->PostResponse(response);
+    response.keep_alive(false);
+    response.result(request_json.as<unsigned short>("status"));
+
+    response.set(boost::beast::http::field::content_type, "application/json");
+    response.set(boost::beast::http::field::content_length, response.body().size());
+    response.body() = request_json.as<std::string>("body");
+
+    http_server->PostResponse(request_json.as<SessionID>("session_id"), response);
   });
 }

@@ -8,37 +8,20 @@
 
 #include <map>
 
-using RequestID = unsigned long;
-using Method = std::string;
-using Target = std::string;
-using Headers = std::map<std::string, std::string>;
-using Body = std::string;
-using HttpStatusCode = unsigned;
+using SessionID = unsigned long;
 class HttpConnection;
-
-struct Request {
-  RequestID id;
-  Method method;
-  Target target;
-  std::map<std::string, std::string> headers;
-  Body body;
-};
-
-struct Response {
-  RequestID request_id;
-  HttpStatusCode status;
-  Body body;
-};
+using Request = boost::beast::http::request<boost::beast::http::string_body>;
+using Response = boost::beast::http::response<boost::beast::http::string_body>;
 
 class HttpServer final {
 public:
-  using RequestHandler = std::function<void(const Request&)>;
+  using RequestHandler = std::function<void(SessionID session_id, const Request&)>;
 
   HttpServer(const std::string& address, unsigned short port,
       boost::asio::io_context &ioc);
 
   void SetRequestHandler(RequestHandler request_handler);
-  void PostResponse(const Response& response);
+  void PostResponse(SessionID session_id, const Response& response);
 
 private:
   void HandleRequest();
@@ -48,5 +31,5 @@ private:
   boost::asio::ip::tcp::acceptor acceptor_;
   boost::asio::ip::tcp::socket socket_;
   HttpServer::RequestHandler request_handler_;
-  std::map<RequestID, std::weak_ptr<HttpConnection>> connections_;
+  std::map<SessionID, std::weak_ptr<HttpConnection>> connections_;
 };

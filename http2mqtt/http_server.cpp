@@ -36,15 +36,7 @@ public:
 
   // Construct a response message based on the program state.
   void WriteResponse(const Response& response) {
-    response_.version(request_.version());
-    response_.keep_alive(false);
-    response_.result(response.status);
-
-    response_.set(http::field::content_type, "application/json");
-    boost::beast::ostream(response_.body()) << response.body;
-    response_.set(http::field::content_length, response_.body().size());
-
-    http::async_write(socket_, response_,
+    http::async_write(socket_, response,
                       [self = shared_from_this()](boost::beast::error_code ec, std::size_t) {
                         self->socket_.shutdown(tcp::socket::shutdown_send, ec);
                         self->deadline_.cancel();
@@ -63,7 +55,7 @@ private:
   http::request<http::string_body> request_;
 
   // The response message.
-  http::response<http::dynamic_body> response_;
+  http::response<http::string_body> response_;
 
   // The timer for putting a deadline on connection processing.
   boost::asio::basic_waitable_timer<std::chrono::steady_clock> deadline_{
@@ -85,20 +77,13 @@ private:
   // Determine what needs to be done with the request message.
   void HandleRequest() {
     if (request_handler_) {
-      Request request;
-      request.id = reinterpret_cast<unsigned long>(this);
-      request.method = request_.method_string().to_string();
-      request.target = request_.target().to_string();
-      request.body = request_.body();
-      request_handler_(request);
+      request_handler_(reinterpret_cast<unsigned long>(this), request_);
     }
   }
 
   // Check whether we have spent enough time on this connection.
   void CheckDeadline() {
-    auto self = shared_from_this();
-
-    deadline_.async_wait([self](boost::beast::error_code ec) {
+    deadline_.async_wait([self = shared_from_this()](boost::beast::error_code ec) {
       if (!ec) {
         // Close socket to cancel any outstanding operation.
         self->socket_.close(ec);
@@ -140,8 +125,8 @@ void HttpServer::SetRequestHandler(HttpServer::RequestHandler request_handler) {
   request_handler_ = request_handler;
 }
 
-void HttpServer::PostResponse(const Response& response) {
-  auto it = connections_.find(response.request_id);
+void HttpServer::PostResponse(SessionID session_id, const Response& response) {
+  auto it = connections_.find(session_id);
   if (it != connections_.end()) {
     auto connection = it->second.lock();
     if (connection) {
