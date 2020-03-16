@@ -8,10 +8,12 @@ set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 include(InstallRedboltz.cmake)
 include(InstallTaoJson.cmake)
+include(InstallGTest.cmake)
 
 find_package(Boost REQUIRED COMPONENTS system date_time thread)
 
 include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
+link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
 
 add_subdirectory(utilities/mqtt_client)
 add_subdirectory(utilities/http2mqtt)

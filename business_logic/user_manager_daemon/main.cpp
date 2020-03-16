@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
 
   MqttClient mqtt_client{"user_manager_daemon", "127.0.0.1", 1883, ioc};
   UserManager user_manager(ioc);
-  UserServer<UserManager> user_manager_request_handler("http2mqtt", mqtt_client, user_manager);
+  UserServer<UserManager> user_handler("http2mqtt", mqtt_client, user_manager);
 
   return ioc.run();
 }
