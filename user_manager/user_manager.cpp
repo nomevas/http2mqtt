@@ -2,17 +2,17 @@
 // Created by nomenas on 13-03-20.
 //
 
-#include "business_logic.h"
+#include "user_manager.h"
 
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-BusinessLogic::BusinessLogic(boost::asio::io_context& ioc)
+UserManager::UserManager(boost::asio::io_context& ioc)
 : ioc_{ioc} {
 
 }
 
-void BusinessLogic::AddItem(const tao::json::value& object, CompletionCallback callback) {
+void UserManager::AddUser(const User& user, std::function<void(int status_code, const boost::uuids::uuid&)>) {
   //    ioc.post([object = message["body"], session_id = message["session_id"]](){
 //
 //      MyObject my_object;
