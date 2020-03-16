@@ -10,18 +10,18 @@
 
 using SessionID = unsigned long;
 class HttpConnection;
-using Request = boost::beast::http::request<boost::beast::http::string_body>;
-using Response = boost::beast::http::response<boost::beast::http::string_body>;
+using Input = boost::beast::http::request<boost::beast::http::string_body>;
+using Output = boost::beast::http::response<boost::beast::http::string_body>;
 
 class HttpServer final {
 public:
-  using RequestHandler = std::function<void(SessionID session_id, const Request&)>;
+  using RequestHandler = std::function<void(SessionID session_id, const Input &)>;
 
   HttpServer(const std::string& address, unsigned short port,
       boost::asio::io_context &ioc);
 
   void SetRequestHandler(RequestHandler request_handler);
-  void PostResponse(SessionID session_id, const Response& response);
+  void PostResponse(SessionID session_id, const Output & response);
 
 private:
   void HandleRequest();

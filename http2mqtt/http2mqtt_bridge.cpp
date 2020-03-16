@@ -12,7 +12,7 @@ Http2MqttBridge::Http2MqttBridge(
     : request_root_topic_{request_root_topic}
     , mqtt_client_{mqtt_client}
     , http_server_{http_server} {
-  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Request& request) {
+  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Input & request) {
     tao::json::value request_json({
             {"session_id", session_id},
             {"body", request.body()}
@@ -22,19 +22,18 @@ Http2MqttBridge::Http2MqttBridge(
 
     auto query_position = target.find('?');
     if (query_position != std::string::npos) {
-      auto temp = target.substr(query_position + 1);
       request_json["query_arguments"] = target.substr(query_position + 1);
       target = target.substr(0, query_position);
     }
-
-    const auto topic = root_topic + target + "/" + boost::lexical_cast<std::string>(request.method_string());
+    request_json["method"] = boost::lexical_cast<std::string>(request.method_string());
+    const auto topic = root_topic + "/request/" + target;
     mqtt_client->Publish(topic, tao::json::to_string(request_json), MQTT_NS::qos::at_most_once);
   });
 
   mqtt_client_->Subscribe(request_root_topic_ + "/response", [http_server = http_server_](const Topic& topic, const Message& message) {
     const tao::json::value request_json(message);
 
-    Response response;
+    Output response;
     response.keep_alive(false);
     response.result(request_json.as<unsigned short>("status"));
 
