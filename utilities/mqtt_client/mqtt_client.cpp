@@ -4,8 +4,6 @@
 
 #include "mqtt_client.h"
 
-#include <iostream>
-
 MqttClient::MqttClient(const std::string& client_id,
                        const std::string& server_address,
                        unsigned int server_port,
@@ -20,15 +18,16 @@ MqttClient::MqttClient(const std::string& client_id,
           (MQTT_NS::optional<packet_id_t> packet_id,
            MQTT_NS::publish_options pubopts,
            MQTT_NS::buffer topic_name,
-           MQTT_NS::buffer contents){
-        std::cout << "publish received."
-                  << " dup: "    << pubopts.get_dup()
-                  << " qos: "    << pubopts.get_qos()
-                  << " retain: " << pubopts.get_retain() << std::endl;
-        if (packet_id)
-          std::cout << "packet_id: " << *packet_id << std::endl;
-        std::cout << "topic_name: " << topic_name << std::endl;
-        std::cout << "contents: " << contents << std::endl;
+           MQTT_NS::buffer contents) {
+        if (packet_id) {
+          const auto it = handlers_.find(*packet_id);
+          if (it != handlers_.end()) {
+            int ok = 0;
+            //it->second(topic_name, contents);
+          } else {
+            int nok = 0;
+          }
+        }
 
         return true;
       });
@@ -36,9 +35,10 @@ MqttClient::MqttClient(const std::string& client_id,
   mqtt_client_->connect();
 }
 
-void MqttClient::Subscribe(const Topic& topic, MessageHandler handler) {
-
+void MqttClient::Subscribe(const Topic& topic, MessageHandler handler, MQTT_NS::qos qos) {
+  handlers_.emplace(mqtt_client_->subscribe(topic, qos), std::move(handler));
 }
+
 void MqttClient::Publish(const Topic& topic, const Message& message, MQTT_NS::qos qos) {
   mqtt_client_->publish(topic, message, qos);
 }

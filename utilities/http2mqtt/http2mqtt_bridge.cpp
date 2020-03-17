@@ -26,7 +26,7 @@ Http2MqttBridge::Http2MqttBridge(
       target = target.substr(0, query_position);
     }
 
-    const auto topic = root_topic + "/request/" + target + "/" + boost::lexical_cast<std::string>(request.method_string());
+    const auto topic = root_topic + target + "/" + boost::lexical_cast<std::string>(request.method_string());
     mqtt_client->Publish(topic, tao::json::to_string(request_json), MQTT_NS::qos::at_most_once);
   });
 
