@@ -5,10 +5,12 @@
 #ifndef HTTP2MQTTBRIDGE_USER_H
 #define HTTP2MQTTBRIDGE_USER_H
 
+#include <boost/uuid/uuid.hpp>
+#include <boost/optional.hpp>
+
 struct User {
-  boost::uuids::uuid id;
+  boost::optional<boost::uuids::uuid> id;
   boost::optional<std::string> name;
-  boost::optional<std::string> full_name;
   boost::optional<unsigned short> age;
 };
 
