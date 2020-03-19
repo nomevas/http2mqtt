@@ -24,7 +24,7 @@ MqttClient::MqttClient(const std::string& client_id,
 void MqttClient::OnConnected(MQTT_NS::error_code ec) {
   if (!ec.failed()) {
     for (auto&& item : subscriptions_) {
-      DoSubscribe(std::move(item.first), std::move(item.second));
+      DoSubscribe(item.first, std::move(item.second));
     }
     subscriptions_.clear();
   }
@@ -79,7 +79,7 @@ std::function<void(const Topic&, const Message&)> MqttClient::CreateTopicFilterH
   };
 }
 
-void MqttClient::DoSubscribe(Topic topic, MessageHandler handler) {
+void MqttClient::DoSubscribe(const Topic& topic, MessageHandler handler) {
   MessageHandler handler_wrapper;
   const auto wildcard_iterator = std::find_if(std::begin(topic), std::end(topic),
       [](char ch) {return ch == '#' || ch == '+';});
@@ -93,15 +93,15 @@ void MqttClient::DoSubscribe(Topic topic, MessageHandler handler) {
       handler_wrapper = CreateMultiLevelFilterHandler(std::move(root_topic), std::move(handler));
     }
   } else {
-    handler_wrapper = CreateTopicFilterHandler(std::move(topic), std::move(handler));
+    handler_wrapper = CreateTopicFilterHandler(topic, std::move(handler));
   }
 
   handlers_.emplace_back(std::move(handler_wrapper));
 
   if (mqtt_client_) {
-    mqtt_client_->async_subscribe(topic, MQTT_NS::qos::at_least_once, [this](MQTT_NS::error_code ec) {
+    mqtt_client_->async_subscribe(topic, MQTT_NS::qos::at_least_once, [this, topic](MQTT_NS::error_code ec) {
       if (ec.failed()) {
-        std::cout << "unable to connect to " << std::endl;
+        std::cout << "unable to subscribe to: " << topic << std::endl;
       }
     });
   }

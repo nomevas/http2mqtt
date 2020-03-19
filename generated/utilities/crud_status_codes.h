@@ -9,8 +9,7 @@ enum class CreateItemStatus {
   Success,
   ItemAlreadyExist,
   OperationForbidden,
-  OutOfMemory,
-  InvalidArguments
+  OutOfMemory
 };
 
 enum class ReadItemStatus {

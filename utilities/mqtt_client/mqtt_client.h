@@ -29,7 +29,7 @@ public:
 
 protected:
   MqttClient() = default;
-  void DoSubscribe(Topic topic, MessageHandler handler);
+  void DoSubscribe(const Topic& topic, MessageHandler handler);
 
   void OnConnected(MQTT_NS::error_code ec);
   bool OnPublished(MQTT_NS::buffer topic_name,

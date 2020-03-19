@@ -8,10 +8,45 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/optional.hpp>
 
+#include <utilities.h>
+
 struct User {
   boost::optional<boost::uuids::uuid> id;
   boost::optional<std::string> name;
   boost::optional<unsigned short> age;
 };
+
+template <>
+void ThrowIfNotValid<User, HttpMethod::POST>(const tao::json::value& json) {
+  if (!json.find("name")) {
+    throw std::runtime_error("User.name is mandatory field!");
+  }
+}
+
+template <>
+User Parse<User>(const tao::json::value& json) {
+  User user;
+  if (json.find("name")) {
+    user.name = json.as<std::string>("name");
+  }
+  if (json.find("age")) {
+    user.age = json.as<unsigned short>("age");
+  }
+  return user;
+}
+
+template <>
+tao::json::value ToJson<User>(const User& object) {
+  tao::json::value return_value;
+
+  if (object.name) {
+    return_value["name"] = *object.name;
+  }
+  if (object.age) {
+    return_value["age"] = *object.age;
+  }
+
+  return return_value;
+}
 
 #endif // HTTP2MQTTBRIDGE_USER_H
