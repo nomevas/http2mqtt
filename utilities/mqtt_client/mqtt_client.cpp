@@ -4,41 +4,105 @@
 
 #include "mqtt_client.h"
 
+#include <iostream>
+
 MqttClient::MqttClient(const std::string& client_id,
                        const std::string& server_address,
                        unsigned int server_port,
                        boost::asio::io_context &ioc)
-: mqtt_client_{MQTT_NS::make_sync_client(ioc, server_address, server_port)} {
+: mqtt_client_{MQTT_NS::make_async_client(ioc, server_address, server_port)} {
   mqtt_client_->set_client_id(client_id);
   mqtt_client_->set_clean_session(true);
   using packet_id_t = typename std::remove_reference_t<decltype(*mqtt_client_)>::packet_id_t;
 
   mqtt_client_->set_publish_handler(
-      [&]
-          (MQTT_NS::optional<packet_id_t> packet_id,
-           MQTT_NS::publish_options pubopts,
-           MQTT_NS::buffer topic_name,
-           MQTT_NS::buffer contents) {
-        if (packet_id) {
-          const auto it = handlers_.find(*packet_id);
-          if (it != handlers_.end()) {
-            int ok = 0;
-            //it->second(topic_name, contents);
-          } else {
-            int nok = 0;
-          }
-        }
-
-        return true;
-      });
-
-  mqtt_client_->connect();
+      std::bind(&MqttClient::OnPublished, this, std::placeholders::_3, std::placeholders::_4));
+  mqtt_client_->async_connect(
+      std::bind(&MqttClient::OnConnected, this, std::placeholders::_1));
 }
 
-void MqttClient::Subscribe(const Topic& topic, MessageHandler handler, MQTT_NS::qos qos) {
-  handlers_.emplace(mqtt_client_->subscribe(topic, qos), std::move(handler));
+void MqttClient::OnConnected(MQTT_NS::error_code ec) {
+  if (!ec.failed()) {
+    for (auto&& item : subscriptions_) {
+      DoSubscribe(std::move(item.first), std::move(item.second));
+    }
+    subscriptions_.clear();
+  }
 }
 
-void MqttClient::Publish(const Topic& topic, const Message& message, MQTT_NS::qos qos) {
-  mqtt_client_->publish(topic, message, qos);
+bool MqttClient::OnPublished(MQTT_NS::buffer topic_name, MQTT_NS::buffer contents) {
+  for (auto&& item : handlers_) {
+    item(topic_name.to_string(), contents.to_string());
+  }
+  return true;
+}
+
+void MqttClient::Subscribe(Topic topic, MessageHandler handler) {
+  subscriptions_.emplace_back(std::move(topic), std::move(handler));
+}
+
+void MqttClient::Publish(const Topic& topic, const Message& message) {
+  mqtt_client_->async_publish(topic, message, MQTT_NS::qos::at_least_once);
+}
+
+std::function<void(const Topic&, const Message&)> MqttClient::CreateSingleLevelFilterHandler(
+    std::string root_topic, std::string topic_path, MessageHandler handler) {
+  return [root_topic = std::move(root_topic), topic_path = std::move(topic_path), handler = std::move(handler)]
+      (const Topic& topic, const Message& message) {
+    if (topic.find(root_topic) == 0 && topic.rfind(topic_path) == topic.size() - topic_path.size()) {
+      const auto wildcard_value = topic.substr(root_topic.size(),
+          topic.size() - topic_path.size() - root_topic.size());
+      if (wildcard_value.find('/') == std::string::npos) {
+        handler(wildcard_value, message);
+      }
+    }
+  };
+}
+
+std::function<void(const Topic&, const Message&)> MqttClient::CreateMultiLevelFilterHandler(
+    std::string root_topic, MessageHandler handler) {
+  return [root_topic = std::move(root_topic), handler = std::move(handler)]
+      (const Topic& topic, const Message& message) {
+    if (topic.find(root_topic) ==  0) {
+      handler(topic.substr(root_topic.size()), message);
+    }
+  };
+}
+
+std::function<void(const Topic&, const Message&)> MqttClient::CreateTopicFilterHandler(
+    std::string topic, MessageHandler handler) {
+  return [root_topic = std::move(topic), handler = std::move(handler)]
+      (const Topic& topic, const Message& message) {
+    if (root_topic == topic) {
+      handler("", message);
+    }
+  };
+}
+
+void MqttClient::DoSubscribe(Topic topic, MessageHandler handler) {
+  MessageHandler handler_wrapper;
+  const auto wildcard_iterator = std::find_if(std::begin(topic), std::end(topic),
+      [](char ch) {return ch == '#' || ch == '+';});
+  if (wildcard_iterator != std::end(topic)) {
+    const auto wildcard_position = wildcard_iterator - std::begin(topic);
+    auto root_topic = topic.substr(0, wildcard_position);
+    if (*wildcard_iterator == '+') {
+      auto topic_path = topic.substr(wildcard_position + 1);
+      handler_wrapper = CreateSingleLevelFilterHandler(std::move(root_topic), std::move(topic_path), std::move(handler));
+    } else {
+      handler_wrapper = CreateMultiLevelFilterHandler(std::move(root_topic), std::move(handler));
+    }
+  } else {
+    handler_wrapper = CreateTopicFilterHandler(std::move(topic), std::move(handler));
+  }
+
+  handlers_.emplace_back(std::move(handler_wrapper));
+
+  if (mqtt_client_) {
+    mqtt_client_->async_subscribe(topic, MQTT_NS::qos::at_least_once, [this](MQTT_NS::error_code ec) {
+      if (ec.failed()) {
+        std::cout << "unable to connect to " << std::endl;
+      }
+    });
+  }
 }

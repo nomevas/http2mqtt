@@ -18,16 +18,19 @@ public:
         std::bind(&UserRequestHandler<Handler>::OnPostUser, this, std::placeholders::_1, std::placeholders::_2));
     mqtt_client.Subscribe(root_topic + "/api/user/GET",
         std::bind(&UserRequestHandler<Handler>::OnGetUsers, this, std::placeholders::_1, std::placeholders::_2));
-    mqtt_client.Subscribe(root_topic + "/api/user/#/PUT",
+    mqtt_client.Subscribe(root_topic + "/api/user/+/PUT",
         std::bind(&UserRequestHandler<Handler>::OnPutUser, this, std::placeholders::_1, std::placeholders::_2));
-    mqtt_client.Subscribe(root_topic + "/api/user/#/GET",
+    mqtt_client.Subscribe(root_topic + "/api/user/+/GET",
         std::bind(&UserRequestHandler<Handler>::OnGetUser, this, std::placeholders::_1, std::placeholders::_2));
-    mqtt_client.Subscribe(root_topic + "/api/user/#/DELETE",
+    mqtt_client.Subscribe(root_topic + "/api/user/+/DELETE",
         std::bind(&UserRequestHandler<Handler>::OnRemoveUser, this, std::placeholders::_1, std::placeholders::_2));}
 
 protected:
   void OnPostUser(const std::string& topic, const std::string& message) {
-    int stop = 0;
+//    int stop = 0;
+//    message-> json -> validate -> transform
+//    handler_.AddUser(user, callback())
+//    strong -> tranform -> json -> valididate -> return;
   }
 
   void OnGetUsers(const std::string& topic, const std::string& message) {
