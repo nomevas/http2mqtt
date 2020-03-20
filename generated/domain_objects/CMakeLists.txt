@@ -1,4 +1,4 @@
 project(domain_objects)
 
 add_library(${PROJECT_NAME} INTERFACE)
-target_include_directories(${PROJECT_NAME} INTERFACE . ../utilities)
+target_include_directories(${PROJECT_NAME} INTERFACE .)

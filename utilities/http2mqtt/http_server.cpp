@@ -35,8 +35,12 @@ public:
   }
 
   // Construct a response message based on the program state.
-  void WriteResponse(const Output & response) {
-    http::async_write(socket_, response,
+  void WriteResponse(Response response) {
+    response_ = std::move(response);
+    response_.version(request_.version());
+    response_.keep_alive(request_.keep_alive());
+    response_.prepare_payload();;
+    http::async_write(socket_, response_,
                       [self = shared_from_this()](boost::beast::error_code ec, std::size_t) {
                         self->socket_.shutdown(tcp::socket::shutdown_send, ec);
                         self->deadline_.cancel();
@@ -125,12 +129,12 @@ void HttpServer::SetRequestHandler(HttpServer::RequestHandler request_handler) {
   request_handler_ = request_handler;
 }
 
-void HttpServer::PostResponse(SessionID session_id, const Output & response) {
+void HttpServer::PostResponse(SessionID session_id, Response response) {
   auto it = connections_.find(session_id);
   if (it != connections_.end()) {
     auto connection = it->second.lock();
     if (connection) {
-      connection->WriteResponse(response);
+      connection->WriteResponse(std::move(response));
     }
   }
 }

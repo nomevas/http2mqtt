@@ -12,7 +12,7 @@ UserManager::UserManager(boost::asio::io_context& ioc)
 : ioc_{ioc} {}
 
 
-void UserManager::AddUser(User user, std::function<void(CreateItemStatus status_code, const boost::uuids::uuid&)> callback) {
+void UserManager::AddUser(User user, CreateItemCallback callback) {
     ioc_.post([this, user = std::move(user), callback = std::move(callback)]() mutable {
       user.id = boost::uuids::random_generator()();
       users_[user.id.get()] = user;
@@ -20,7 +20,7 @@ void UserManager::AddUser(User user, std::function<void(CreateItemStatus status_
     });
 }
 
-void UserManager::UpdateUser(boost::uuids::uuid id, User user, std::function<void(UpdateItemStatus status_code)> callback) {
+void UserManager::UpdateUser(boost::uuids::uuid id, User user, UpdateItemCallback callback) {
   ioc_.post([this, id = std::move(id), user = std::move(user), callback = std::move(callback)]() mutable {
     const auto it = users_.find(id);
     if (it != users_.end()) {
@@ -37,7 +37,7 @@ void UserManager::UpdateUser(boost::uuids::uuid id, User user, std::function<voi
   });
 }
 
-void UserManager::GetUser(boost::uuids::uuid id, std::function<void(ReadItemStatus status_code, boost::optional<const User&>)> callback) {
+void UserManager::GetUser(boost::uuids::uuid id, GetItemCallback<User> callback) {
   ioc_.post([this, id = id, callback = std::move(callback)]() mutable {
     const auto it = users_.find(id);
     if (it != users_.end()) {
@@ -48,8 +48,7 @@ void UserManager::GetUser(boost::uuids::uuid id, std::function<void(ReadItemStat
   });
 }
 
-void UserManager::GetUsers(boost::uuids::uuid, std::vector<boost::uuids::uuid>,
-    std::function<void(ReadItemStatus, const std::vector<std::reference_wrapper<const User>>&)> callback) {
+void UserManager::GetUsers(boost::uuids::uuid, std::vector<boost::uuids::uuid>, GetItemsCallback<User> callback) {
   ioc_.post([this, callback = std::move(callback)]() mutable {
     std::vector<std::reference_wrapper<const User>> users;
     for (auto item : users_) {
@@ -59,7 +58,7 @@ void UserManager::GetUsers(boost::uuids::uuid, std::vector<boost::uuids::uuid>,
   });
 }
 
-void UserManager::RemoveUser(const boost::uuids::uuid id, std::function<void(DeleteItemStatus status_code)> callback) {
+void UserManager::RemoveUser(const boost::uuids::uuid id, DeleteItemCallback callback) {
   ioc_.post([this, id = std::move(id), callback = std::move(callback)]() mutable {
     if (users_.find(id) != users_.end()) {
       users_.erase(id);

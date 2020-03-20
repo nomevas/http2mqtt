@@ -15,8 +15,6 @@ using Message = std::string;
 class MqttClient {
 public:
   using Client = std::shared_ptr<MQTT_NS::callable_overlay<MQTT_NS::async_client<MQTT_NS::tcp_endpoint<as::ip::tcp::socket, as::io_context::strand>>>>;
-
-
   using MessageHandler = std::function<void(const WildcardValue&, const Message&)>;
 
   MqttClient(const std::string& client_id,

@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "user.h"
+#include "crud_callbacks_impl.h"
 
 template <typename Handler>
 class UserRequestHandler {
@@ -32,18 +33,14 @@ protected:
   void OnPostUser(const std::string& message) {
     tao::json::value response;
     try {
-      const tao::json::value message_json(message);
-      response["session_id"] = message_json.as<size_t>("session_id");
-      const auto body = message_json.find("body");
+      const tao::json::value request = tao::json::from_string(message);
+      const auto body = request.at("body");
+      response["session_id"] = request.as<size_t>("session_id");
       ThrowIfNotValid<User, HttpMethod::POST>(body);
-      handler_.AddUser(Parse<User>(*body),
-          [this, response = std::move(response)](CreateItemStatus status_code, const boost::uuids::uuid& uuid) mutable {
-        SetCreateItemResponse(&response, status_code, uuid);
-        mqtt_client_.Publish(root_topic_ + "/response", tao::json::to_string(response));
-      });
+      handler_.AddUser(Parse<User>(body), GetCreateItemCallback(mqtt_client_, root_topic_, std::move(response)));
     } catch (const std::exception& ex) {
       response["status"] = 400;
-      response["error"] = ex.what();
+      response["body"] = std::string("{\"error\": \"") + ex.what() + "\"}";
       mqtt_client_.Publish(root_topic_ + "/response", tao::json::to_string(response));
     }
   }

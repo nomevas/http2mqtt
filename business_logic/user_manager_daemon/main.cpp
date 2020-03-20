@@ -7,6 +7,8 @@
 #include "user_manager.h"
 #include "user_request_handler.h"
 
+#include <tao/json.hpp>
+
 int main(int argc, char** argv) {
   boost::asio::io_context ioc{1};
   boost::asio::io_context::work work{ioc};

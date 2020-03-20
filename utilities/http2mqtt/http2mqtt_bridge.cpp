@@ -13,12 +13,12 @@ Http2MqttBridge::Http2MqttBridge(
     : request_root_topic_{request_root_topic}
     , mqtt_client_{mqtt_client}
     , http_server_{http_server} {
-  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Input & request) {
+  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Request & request) {
     try {
       tao::json::value request_json({
-                                        {"session_id", session_id},
-                                        {"body", request.body()}
-                                    });
+          {"session_id", session_id},
+          {"body", tao::json::from_string(request.body())}
+      });
 
       std::string target = boost::lexical_cast<std::string>(request.target());
       if (target.rfind('/') == target.size() - 1) {
@@ -40,17 +40,19 @@ Http2MqttBridge::Http2MqttBridge(
 
   mqtt_client_->Subscribe(request_root_topic_ + "/response", [http_server = http_server_](const Topic& topic, const Message& message) {
     try {
-      const tao::json::value request_json(message);
+      const tao::json::value response_json = tao::json::from_string(message);
 
-      Output response;
+      Response response;
       response.keep_alive(false);
-      response.result(request_json.as<unsigned short>("status"));
+      response.result(response_json.as<unsigned short>("status"));
 
-      response.set(boost::beast::http::field::content_type, "application/json");
-      response.set(boost::beast::http::field::content_length, response.body().size());
-      response.body() = request_json.as<std::string>("body");
+      if (response_json.find("body")) {
+        response.set(boost::beast::http::field::content_type, "application/json");
+        response.set(boost::beast::http::field::content_length, response.body().size());
+        response.body() = response_json.as<std::string>("body");
+      }
 
-      http_server->PostResponse(request_json.as<SessionID>("session_id"), response);
+      http_server->PostResponse(response_json.as<SessionID>("session_id"), std::move(response));
     } catch (const std::exception& ex) {
       std::cout << "Handle response exception: " << ex.what() << std::endl;
     }

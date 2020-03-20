@@ -8,7 +8,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/optional.hpp>
 
-#include <utilities.h>
+#include <domain_object_apis.h>
 
 struct User {
   boost::optional<boost::uuids::uuid> id;
