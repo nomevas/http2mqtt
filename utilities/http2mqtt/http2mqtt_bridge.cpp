@@ -16,9 +16,12 @@ Http2MqttBridge::Http2MqttBridge(
   http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Request & request) {
     try {
       tao::json::value request_json({
-          {"session_id", session_id},
-          {"body", tao::json::from_string(request.body())}
+          {"session_id", session_id}
       });
+
+      if (request.body().size()) {
+        request_json["body"] = tao::json::from_string(request.body());
+      }
 
       std::string target = boost::lexical_cast<std::string>(request.target());
       if (target.rfind('/') == target.size() - 1) {
@@ -48,7 +51,7 @@ Http2MqttBridge::Http2MqttBridge(
       if (response_json.find("body")) {
         response.set(boost::beast::http::field::content_type, "application/json");
         response.set(boost::beast::http::field::content_length, response.body().size());
-        response.body() = response_json.as<std::string>("body");
+        response.body() = tao::json::to_string(response_json.at("body"));
       }
 
       http_server->PostResponse(response_json.as<SessionID>("session_id"), std::move(response));

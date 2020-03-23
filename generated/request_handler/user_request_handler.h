@@ -17,12 +17,21 @@ public:
   : ResourceRequestHandler{"user", std::move(root_topic), mqtt_client}
   , handler_{handler} {
     RegisterPostItemHandler(std::bind(&UserRequestHandler::CreateUser, this, std::placeholders::_1, std::placeholders::_2));
+    RegisterGetItemHandler(std::bind(&UserRequestHandler::GetUser, this, std::placeholders::_1, std::placeholders::_2));
   }
-protected:
 
-  void CreateUser(const tao::json::value& body, CreateItemCallback callback) {
+protected:
+  void CreateUser(const tao::json::value& body, PostItemCallback callback) {
     ThrowIfNotValid<User, HttpMethod::POST>(body);
     handler_.AddUser(Parse<User>(body), std::move(callback));
+  }
+
+  void GetUser(const boost::uuids::uuid& uuid, GetItemCallback callback) {
+    handler_.GetUser(uuid, [callback = std::move(callback)](ReadItemStatus status_code, boost::optional<const User&> user) {
+      const auto object = ToJson<User>(*user);
+      ThrowIfNotValid<User, HttpMethod::GET>(object);
+      callback(status_code, object);
+    });
   }
 
   void OnGetUsers(const std::string& message) {
@@ -30,10 +39,6 @@ protected:
   }
 
   void OnPutUser(const WildcardValue& wildcard_value, const std::string& message) {
-
-  }
-
-  void OnGetUser(const WildcardValue& wildcard_value, const std::string& message) {
 
   }
 
