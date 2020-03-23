@@ -8,28 +8,19 @@
 #include <mqtt_client.h>
 
 #include "user.h"
-#include <request_handler.h>
+#include <resource_request_handler.h>
 
 template <typename Handler>
-class UserRequestHandler : public RequestHandler {
+class UserRequestHandler : public ResourceRequestHandler {
 public:
   UserRequestHandler(std::string root_topic, MqttClient& mqtt_client, Handler& handler)
-  : RequestHandler{std::move(root_topic), mqtt_client}
+  : ResourceRequestHandler{"user", std::move(root_topic), mqtt_client}
   , handler_{handler} {
-    mqtt_client.Subscribe(GetTopic("/api/user/POST"),
-                          std::bind(&RequestHandler::OnPostMessage, this, std::placeholders::_2));
-    mqtt_client.Subscribe(GetTopic("/api/user/GET"),
-                          std::bind(&RequestHandler::OnGetItemMessage, this, std::placeholders::_2));
-    mqtt_client.Subscribe(GetTopic("/api/user/+/PUT"),
-                          std::bind(&RequestHandler::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2));
-    mqtt_client.Subscribe(GetTopic("/api/user/+/GET"),
-                          std::bind(&RequestHandler::OnGetItemsMessage, this, std::placeholders::_1, std::placeholders::_2));
-    mqtt_client.Subscribe(GetTopic("/api/user/+/DELETE"),
-                          std::bind(&RequestHandler::OnRemoveMessage, this, std::placeholders::_1, std::placeholders::_2));}
-
+    RegisterPostItemHandler(std::bind(&UserRequestHandler::CreateUser, this, std::placeholders::_1, std::placeholders::_2));
+  }
 protected:
 
-  void PostItem(const tao::json::value& body, CreateItemCallback callback) override {
+  void CreateUser(const tao::json::value& body, CreateItemCallback callback) {
     ThrowIfNotValid<User, HttpMethod::POST>(body);
     handler_.AddUser(Parse<User>(body), std::move(callback));
   }
