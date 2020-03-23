@@ -26,7 +26,7 @@ public:
   void RemoveUser(boost::uuids::uuid id, DeleteItemCallback callback);
 
 private:
-  boost::asio::io_context& ioc_;
+  boost:: asio::io_context& ioc_;
   std::map<boost::uuids::uuid, User> users_;
 };
 

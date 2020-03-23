@@ -26,6 +26,9 @@ void ThrowIfNotValid<User, HttpMethod::POST>(const tao::json::value& json) {
 template <>
 User Parse<User>(const tao::json::value& json) {
   User user;
+  if (json.find("id")) {
+    user.id = boost::lexical_cast<boost::uuids::uuid>(json.as<std::string>("id"));
+  }
   if (json.find("name")) {
     user.name = json.as<std::string>("name");
   }
@@ -39,11 +42,14 @@ template <>
 tao::json::value ToJson<User>(const User& object) {
   tao::json::value return_value;
 
+  if (object.id) {
+    return_value["id"] = boost::lexical_cast<std::string>(object.id.value());
+  }
   if (object.name) {
-    return_value["name"] = *object.name;
+    return_value["name"] = object.name.value();
   }
   if (object.age) {
-    return_value["age"] = *object.age;
+    return_value["age"] = object.age.value();
   }
 
   return return_value;

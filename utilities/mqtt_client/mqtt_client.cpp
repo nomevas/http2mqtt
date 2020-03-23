@@ -49,7 +49,9 @@ std::function<void(const Topic&, const Message&)> MqttClient::CreateSingleLevelF
     std::string root_topic, std::string topic_path, MessageHandler handler) {
   return [root_topic = std::move(root_topic), topic_path = std::move(topic_path), handler = std::move(handler)]
       (const Topic& topic, const Message& message) {
-    if (topic.find(root_topic) == 0 && topic.rfind(topic_path) == topic.size() - topic_path.size()) {
+    if (topic.find(root_topic) == 0 &&
+    topic.rfind(topic_path) == topic.size() - topic_path.size() &&
+    topic.size() > root_topic.size() + topic_path.size()) {
       const auto wildcard_value = topic.substr(root_topic.size(),
           topic.size() - topic_path.size() - root_topic.size());
       if (wildcard_value.find('/') == std::string::npos) {

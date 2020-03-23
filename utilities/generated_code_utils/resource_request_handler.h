@@ -6,13 +6,16 @@
 #define HTTP2MQTTBRIDGE_RESOURCE_REQUEST_HANDLER_H
 
 #include <mqtt_client.h>
-
+#include <iostream>
 class ResourceRequestHandler {
 public:
   using PostItemCallback = std::function<void(CreateItemStatus status_code, const boost::uuids::uuid&)>;
   using PostItemHandler = std::function<void(const tao::json::value& body, PostItemCallback callback)>;
   using GetItemCallback = std::function<void(ReadItemStatus status_code, const tao::json::value& object)>;
   using GetItemHandler = std::function<void(const boost::uuids::uuid&, GetItemCallback)>;
+  using GetItemsCallback = std::function<void(ReadItemStatus status_code, const tao::json::value& object)>;
+  using GetItemsHandler = std::function<void(const boost::uuids::uuid& cursor,
+      const std::vector<boost::uuids::uuid>& ids, GetItemsCallback callback)>;
   using PutItemCallback = std::function<void(UpdateItemStatus status_code)>;
   using PutItemHandler = std::function<void(const boost::uuids::uuid&, const tao::json::value& body, PutItemCallback callback)>;
   using DeleteItemCallback = std::function<void(DeleteItemStatus status_code)>;
@@ -33,6 +36,11 @@ public:
         std::bind(&ResourceRequestHandler::OnGetItemMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
+  void RegisterGetItemsHandler(GetItemsHandler handler) {
+    mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/GET",
+        std::bind(&ResourceRequestHandler::OnGetItemsMessage, this, std::placeholders::_2, std::move(handler)));
+  }
+
   void RegisterPutItemHandler(PutItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/PUT",
         std::bind(&ResourceRequestHandler::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
@@ -43,12 +51,6 @@ public:
         std::bind(&ResourceRequestHandler::OnDeleteMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
-//  void RegisterPostItemHandler(std::function<void(const tao::json::value& body, CreateItemCallback callback)> handler) {
-//        mqtt_client.Subscribe(GetTopic("/api/user/+/GET"),
-//                              std::bind(&ResourceRequestHandler::OnGetItemsMessage, this, std::placeholders::_1, std::placeholders::_2));
-//        mqtt_client.Subscribe(GetTopic("/api/user/+/DELETE"),
-//                              std::bind(&ResourceRequestHandler::OnRemoveMessage, this, std::placeholders::_1, std::placeholders::_2));}
-//  }
 protected:
   void OnPostMessage(const std::string& message, PostItemHandler handler) {
     size_t session_id = {};
@@ -81,8 +83,21 @@ protected:
     }
   }
 
-  void OnGetItemsMessage(const std::string& message) {
-
+  void OnGetItemsMessage(const std::string& message, GetItemsHandler handler) {
+    size_t session_id = {};
+    try {
+      const tao::json::value request = tao::json::from_string(message);
+      session_id = request.as<size_t>("session_id");
+      tao::json::value response = {{"session_id", session_id}};
+      boost::uuids::uuid cursor = {}; // read from the message
+      std::vector<boost::uuids::uuid> ids = {}; // read from the message
+      handler(cursor, ids, GetGetItemsCallback(std::move(response)));
+    } catch (const std::exception& ex) {
+      tao::json::value response = {{"session_id", session_id}};
+      response["status"] = 404;
+      response["body"] = "{\"error\": \"Resource doesn't exist\"}";
+      mqtt_client_.Publish(root_topic_ + "/response", tao::json::to_string(response));
+    }
   }
 
   void OnPutMessage(const WildcardValue& wildcard_value, const std::string& message, PutItemHandler handler) {
@@ -160,9 +175,18 @@ protected:
         response["status"] = 403;
         response["body"] = "{\"error\": \"Operation forbidden\"}";
         break;
+      case ReadItemStatus::InternalError:
+        response["status"] = 500;
+        response["body"] = "{\"error\": \"Internal Error\"}";
+        break;
       }
+      std::cout << "response: " << response << std::endl;
       mqtt_client.Publish(root_topic + "/response", tao::json::to_string(response));
     };
+  }
+
+  GetItemCallback GetGetItemsCallback(tao::json::value response) {
+    return GetGetItemCallback(std::move(response));
   }
 
   PutItemCallback GetPutItemCallback(tao::json::value response) {

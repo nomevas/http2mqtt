@@ -15,7 +15,8 @@ enum class CreateItemStatus {
 enum class ReadItemStatus {
   Success,
   ItemDoesntExist,
-  OperationForbidden
+  OperationForbidden,
+  InternalError
 };
 
 enum class UpdateItemStatus {

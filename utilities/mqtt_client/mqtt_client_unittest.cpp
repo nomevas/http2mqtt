@@ -32,6 +32,8 @@ TEST_P(FilterTests, Body) {
   MQTT_NS::buffer topic(boost::string_view(std::get<1>(params)));
   MQTT_NS::buffer message(boost::string_view("message"));
   mqtt_client.OnPublished(topic, message);
+  if (wildcard_value)
+    std::cout << "wildcard_value: " << *wildcard_value << std::endl;
   EXPECT_EQ(std::get<2>(params), wildcard_value);
 }
 
@@ -39,6 +41,7 @@ INSTANTIATE_TEST_SUITE_P(SingleLevelFilterTests, FilterTests, testing::Values(
     std::make_tuple("topic_root/+/path", "topic_root/id/path", "id"),
     std::make_tuple("+/path", "id/path", "id"),
     std::make_tuple("topic_root/+", "topic_root/id", "id"),
+    std::make_tuple("topic_root/+/GET", "topic_root/GET", boost::optional<WildcardValue>{}),
     std::make_tuple("topic_root/+/path", "topic_root/id/and/something/else/path", boost::optional<WildcardValue>{}),
     std::make_tuple("topic_root/1/+/path", "topic_root/id/path", boost::optional<WildcardValue>{}),
     std::make_tuple("+/path/1", "id/path", boost::optional<WildcardValue>{})));
