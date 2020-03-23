@@ -16,8 +16,12 @@ public:
   UserRequestHandler(std::string root_topic, MqttClient& mqtt_client, Handler& handler)
   : ResourceRequestHandler{"user", std::move(root_topic), mqtt_client}
   , handler_{handler} {
-    RegisterPostItemHandler(std::bind(&UserRequestHandler::CreateUser, this, std::placeholders::_1, std::placeholders::_2));
-    RegisterGetItemHandler(std::bind(&UserRequestHandler::GetUser, this, std::placeholders::_1, std::placeholders::_2));
+    RegisterPostItemHandler(std::bind(&UserRequestHandler::CreateUser, this,
+        std::placeholders::_1, std::placeholders::_2));
+    RegisterGetItemHandler(std::bind(&UserRequestHandler::GetUser, this,
+        std::placeholders::_1, std::placeholders::_2));
+    RegisterPutItemHandler(std::bind(&UserRequestHandler::UpdateUser, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   }
 
 protected:
@@ -38,8 +42,9 @@ protected:
 
   }
 
-  void OnPutUser(const WildcardValue& wildcard_value, const std::string& message) {
-
+  void UpdateUser(const boost::uuids::uuid& uuid, const tao::json::value& body, PutItemCallback callback) {
+    ThrowIfNotValid<User, HttpMethod::PUT>(body);
+    handler_.UpdateUser(uuid, Parse<User>(body), std::move(callback));
   }
 
   void OnRemoveUser(const WildcardValue& wildcard_value, const std::string& message) {

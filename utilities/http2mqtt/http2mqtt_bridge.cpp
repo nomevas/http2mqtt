@@ -51,7 +51,11 @@ Http2MqttBridge::Http2MqttBridge(
       if (response_json.find("body")) {
         response.set(boost::beast::http::field::content_type, "application/json");
         response.set(boost::beast::http::field::content_length, response.body().size());
-        response.body() = tao::json::to_string(response_json.at("body"));
+        if (response_json.at("body").is_string()) {
+          response.body() = response_json.as<std::string>("body");
+        } else {
+          response.body() = tao::json::to_string(response_json.at("body"));
+        }
       }
 
       http_server->PostResponse(response_json.as<SessionID>("session_id"), std::move(response));

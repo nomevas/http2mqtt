@@ -22,8 +22,7 @@ enum class UpdateItemStatus {
   Success,
   ItemDoesntExist,
   OperationForbidden,
-  OutOfMemory,
-  InvalidArguments
+  OutOfMemory
 };
 
 enum class DeleteItemStatus {

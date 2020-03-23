@@ -6,7 +6,6 @@
 #define HTTP2MQTTBRIDGE_RESOURCE_REQUEST_HANDLER_H
 
 #include <mqtt_client.h>
-#include <iostream>
 
 class ResourceRequestHandler {
 public:
@@ -14,6 +13,8 @@ public:
   using PostItemHandler = std::function<void(const tao::json::value& body, PostItemCallback callback)>;
   using GetItemCallback = std::function<void(ReadItemStatus status_code, const tao::json::value& object)>;
   using GetItemHandler = std::function<void(const boost::uuids::uuid&, GetItemCallback)>;
+  using PutItemCallback = std::function<void(UpdateItemStatus status_code)>;
+  using PutItemHandler = std::function<void(const boost::uuids::uuid&, const tao::json::value& body, PutItemCallback callback)>;
 
   ResourceRequestHandler(std::string resource_name, std::string root_topic, MqttClient& mqtt_client)
       : mqtt_client_{mqtt_client}
@@ -30,13 +31,12 @@ public:
         std::bind(&ResourceRequestHandler::OnGetItemMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
+  void RegisterPutItemHandler(PutItemHandler handler) {
+    mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/PUT",
+        std::bind(&ResourceRequestHandler::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
+  }
+
 //  void RegisterPostItemHandler(std::function<void(const tao::json::value& body, CreateItemCallback callback)> handler) {
-//    mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/POST",
-//                           std::bind(&ResourceRequestHandler::OnPostMessage, this, std::placeholders::_2, std::move(handler)));
-//        mqtt_client.Subscribe(GetTopic("/api/user/GET"),
-//                              std::bind(&ResourceRequestHandler::OnGetItemMessage, this, std::placeholders::_2));
-//        mqtt_client.Subscribe(GetTopic("/api/user/+/PUT"),
-//                              std::bind(&ResourceRequestHandler::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2));
 //        mqtt_client.Subscribe(GetTopic("/api/user/+/GET"),
 //                              std::bind(&ResourceRequestHandler::OnGetItemsMessage, this, std::placeholders::_1, std::placeholders::_2));
 //        mqtt_client.Subscribe(GetTopic("/api/user/+/DELETE"),
@@ -78,8 +78,20 @@ protected:
 
   }
 
-  void OnPutMessage(const WildcardValue& wildcard_value, const std::string& message) {
-
+  void OnPutMessage(const WildcardValue& wildcard_value, const std::string& message, PutItemHandler handler) {
+    size_t session_id = {};
+    try {
+      const tao::json::value request = tao::json::from_string(message);
+      const auto body = request.at("body");
+      session_id = request.as<size_t>("session_id");
+      tao::json::value response = {{"session_id", session_id}};
+      handler(boost::lexical_cast<boost::uuids::uuid>(wildcard_value), body, GetPutItemCallback(std::move(response)));
+    } catch (const std::exception& ex) {
+      tao::json::value response = {{"session_id", session_id}};
+      response["status"] = 400;
+      response["body"] = std::string("{\"error\": \"") + ex.what() + "\"}";
+      mqtt_client_.Publish(root_topic_ + "/response", tao::json::to_string(response));
+    }
   }
 
   void OnRemoveMessage(const WildcardValue& wildcard_value, const std::string& message) {
@@ -128,7 +140,30 @@ protected:
         response["body"] = "{\"error\": \"Operation forbidden\"}";
         break;
       }
-      std::cout << "response: " << response << std::endl;
+      mqtt_client.Publish(root_topic + "/response", tao::json::to_string(response));
+    };
+  }
+
+  PutItemCallback GetPutItemCallback(tao::json::value response) {
+    return [mqtt_client = mqtt_client_, root_topic = root_topic_, response = std::move(response)]
+    (UpdateItemStatus status_code) mutable {
+      switch (status_code) {
+      case UpdateItemStatus ::Success:
+        response["status"] = 200;
+        break;
+      case UpdateItemStatus::ItemDoesntExist:
+        response["status"] = 404;
+        response["body"] = "{\"error\": \"Item doesn't exist\"}";
+      case UpdateItemStatus::OperationForbidden:
+        response["status"] = 403;
+        response["body"] = "{\"error\": \"Operation forbidden\"}";
+        break;
+      case UpdateItemStatus::OutOfMemory:
+        response["status"] = 507;
+        response["body"] = "{\"error\": \"Out of memory\"}";
+        break;
+      }
+
       mqtt_client.Publish(root_topic + "/response", tao::json::to_string(response));
     };
   }
