@@ -22,6 +22,8 @@ public:
         std::placeholders::_1, std::placeholders::_2));
     RegisterPutItemHandler(std::bind(&UserRequestHandler::UpdateUser, this,
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    RegisterDeleteItemHandler(std::bind(&UserRequestHandler::DeleteUser, this,
+        std::placeholders::_1, std::placeholders::_2));
   }
 
 protected:
@@ -32,9 +34,13 @@ protected:
 
   void GetUser(const boost::uuids::uuid& uuid, GetItemCallback callback) {
     handler_.GetUser(uuid, [callback = std::move(callback)](ReadItemStatus status_code, boost::optional<const User&> user) {
-      const auto object = ToJson<User>(*user);
-      ThrowIfNotValid<User, HttpMethod::GET>(object);
-      callback(status_code, object);
+      if (user) {
+        const auto object = ToJson<User>(*user);
+        ThrowIfNotValid<User, HttpMethod::GET>(object);
+        callback(status_code, object);
+      } else {
+        callback(status_code, tao::json::null);
+      }
     });
   }
 
@@ -47,8 +53,8 @@ protected:
     handler_.UpdateUser(uuid, Parse<User>(body), std::move(callback));
   }
 
-  void OnRemoveUser(const WildcardValue& wildcard_value, const std::string& message) {
-
+  void DeleteUser(const boost::uuids::uuid& uuid, DeleteItemCallback callback) {
+    handler_.RemoveUser(uuid, std::move(callback));
   }
 
 private:

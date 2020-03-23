@@ -15,6 +15,8 @@ public:
   using GetItemHandler = std::function<void(const boost::uuids::uuid&, GetItemCallback)>;
   using PutItemCallback = std::function<void(UpdateItemStatus status_code)>;
   using PutItemHandler = std::function<void(const boost::uuids::uuid&, const tao::json::value& body, PutItemCallback callback)>;
+  using DeleteItemCallback = std::function<void(DeleteItemStatus status_code)>;
+  using DeleteItemHandler = std::function<void(const boost::uuids::uuid&, DeleteItemCallback callback)>;
 
   ResourceRequestHandler(std::string resource_name, std::string root_topic, MqttClient& mqtt_client)
       : mqtt_client_{mqtt_client}
@@ -34,6 +36,11 @@ public:
   void RegisterPutItemHandler(PutItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/PUT",
         std::bind(&ResourceRequestHandler::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
+  }
+
+  void RegisterDeleteItemHandler(DeleteItemHandler handler) {
+    mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/DELETE",
+        std::bind(&ResourceRequestHandler::OnDeleteMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
 //  void RegisterPostItemHandler(std::function<void(const tao::json::value& body, CreateItemCallback callback)> handler) {
@@ -94,10 +101,6 @@ protected:
     }
   }
 
-  void OnRemoveMessage(const WildcardValue& wildcard_value, const std::string& message) {
-
-  }
-
   PostItemCallback GetPostItemCallback(tao::json::value response) {
     return [mqtt_client = mqtt_client_, root_topic = root_topic_, response = std::move(response)](
                CreateItemStatus status_code, const boost::uuids::uuid &uuid) mutable {
@@ -110,6 +113,7 @@ protected:
       case CreateItemStatus::ItemAlreadyExist:
         response["status"] = 400;
         response["body"] = "{\"error\": \"Item already exist\"}";
+        break;
       case CreateItemStatus::OperationForbidden:
         response["status"] = 403;
         response["body"] = "{\"error\": \"Operation forbidden\"}";
@@ -124,6 +128,22 @@ protected:
     };
   }
 
+  void OnDeleteMessage(const WildcardValue& wildcard_value, const std::string& message, DeleteItemHandler handler) {
+    size_t session_id = {};
+    try {
+      const tao::json::value request = tao::json::from_string(message);
+      const auto body = request.at("body");
+      session_id = request.as<size_t>("session_id");
+      tao::json::value response = {{"session_id", session_id}};
+      handler(boost::lexical_cast<boost::uuids::uuid>(wildcard_value), GetDeleteItemCallback(std::move(response)));
+    } catch (const std::exception& ex) {
+      tao::json::value response = {{"session_id", session_id}};
+      response["status"] = 400;
+      response["body"] = std::string("{\"error\": \"") + ex.what() + "\"}";
+      mqtt_client_.Publish(root_topic_ + "/response", tao::json::to_string(response));
+    }
+  }
+
   GetItemCallback GetGetItemCallback(tao::json::value response) {
     return [mqtt_client = mqtt_client_, root_topic = root_topic_, response = std::move(response)](
         ReadItemStatus status_code, const tao::json::value& object) mutable {
@@ -134,7 +154,8 @@ protected:
         break;
       case ReadItemStatus::ItemDoesntExist:
         response["status"] = 404;
-        response["body"] = "{\"error\": \"Item already exist\"}";
+        response["body"] = "{\"error\": \"Item doesn't exist\"}";
+        break;
       case ReadItemStatus::OperationForbidden:
         response["status"] = 403;
         response["body"] = "{\"error\": \"Operation forbidden\"}";
@@ -154,6 +175,7 @@ protected:
       case UpdateItemStatus::ItemDoesntExist:
         response["status"] = 404;
         response["body"] = "{\"error\": \"Item doesn't exist\"}";
+        break;
       case UpdateItemStatus::OperationForbidden:
         response["status"] = 403;
         response["body"] = "{\"error\": \"Operation forbidden\"}";
@@ -161,6 +183,27 @@ protected:
       case UpdateItemStatus::OutOfMemory:
         response["status"] = 507;
         response["body"] = "{\"error\": \"Out of memory\"}";
+        break;
+      }
+
+      mqtt_client.Publish(root_topic + "/response", tao::json::to_string(response));
+    };
+  }
+
+  DeleteItemCallback GetDeleteItemCallback(tao::json::value response) {
+    return [mqtt_client = mqtt_client_, root_topic = root_topic_, response = std::move(response)]
+        (DeleteItemStatus status_code) mutable {
+      switch (status_code) {
+      case DeleteItemStatus ::Success:
+        response["status"] = 200;
+        break;
+      case DeleteItemStatus::ItemDoesntExist:
+        response["status"] = 404;
+        response["body"] = "{\"error\": \"Item doesn't exist\"}";
+        break;
+      case DeleteItemStatus::OperationForbidden:
+        response["status"] = 403;
+        response["body"] = "{\"error\": \"Operation forbidden\"}";
         break;
       }
 
