@@ -17,6 +17,7 @@ link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
 
 add_subdirectory(utilities/mqtt_client)
 add_subdirectory(utilities/http2mqtt)
+add_subdirectory(utilities/generated_code_utils)
 add_subdirectory(generated/domain_objects)
 add_subdirectory(generated/request_handler)
 add_subdirectory(business_logic/user_manager)

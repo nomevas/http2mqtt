@@ -43,7 +43,6 @@ Http2MqttBridge::Http2MqttBridge(
       const tao::json::value response_json = tao::json::from_string(message);
 
       Response response;
-      response.keep_alive(false);
       response.result(response_json.as<unsigned short>("status"));
 
       if (response_json.find("body")) {
