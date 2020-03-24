@@ -5,7 +5,7 @@
 #include <mqtt_client.h>
 
 #include "user_manager.h"
-#include "user_request_handler.h"
+#include "user_end_point.h"
 
 #include <tao/json.hpp>
 
@@ -15,7 +15,8 @@ int main(int argc, char** argv) {
 
   MqttClient mqtt_client{"user_manager_daemon", "127.0.0.1", 1883, ioc};
   UserManager user_manager(ioc);
-  UserRequestHandler<UserManager> user_handler("http2mqtt", mqtt_client, user_manager);
+  const Topic root_topic = "http2mqtt";
+  UserEndPoint<UserManager> user_end_point(root_topic, mqtt_client, user_manager);
 
   return ioc.run();
 }

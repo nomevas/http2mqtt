@@ -2,12 +2,12 @@
 // Created by nomenas on 23-03-20.
 //
 
-#ifndef HTTP2MQTTBRIDGE_RESOURCE_REQUEST_HANDLER_H
-#define HTTP2MQTTBRIDGE_RESOURCE_REQUEST_HANDLER_H
+#ifndef HTTP2MQTTBRIDGE_MQTT_RESOURCE_H
+#define HTTP2MQTTBRIDGE_MQTT_RESOURCE_H
 
 #include <mqtt_client.h>
 
-class ResourceRequestHandler {
+class EndPoint {
 public:
   using PostItemCallback = std::function<void(CreateItemStatus status_code, const boost::uuids::uuid&)>;
   using PostItemHandler = std::function<void(const tao::json::value& body, PostItemCallback callback)>;
@@ -21,39 +21,39 @@ public:
   using DeleteItemCallback = std::function<void(DeleteItemStatus status_code)>;
   using DeleteItemHandler = std::function<void(const boost::uuids::uuid&, DeleteItemCallback callback)>;
 
-  ResourceRequestHandler(std::string resource_name, std::string root_topic, MqttClient& mqtt_client)
+  EndPoint(std::string resource_name, std::string root_topic, MqttClient& mqtt_client)
       : mqtt_client_{mqtt_client}
       , root_topic_{std::move(root_topic)}
       , resource_name_(std::move(resource_name)) {}
 
   void RegisterPostItemHandler(PostItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/POST",
-        std::bind(&ResourceRequestHandler::OnPostMessage, this, std::placeholders::_2, std::move(handler)));
+        std::bind(&EndPoint::OnPostMessage, this, std::placeholders::_2, std::move(handler)));
   }
 
   void RegisterGetItemHandler(GetItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/GET",
-        std::bind(&ResourceRequestHandler::OnGetItemMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
+        std::bind(&EndPoint::OnGetItemMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
   void RegisterGetItemsHandler(GetItemsHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/GET",
-        std::bind(&ResourceRequestHandler::OnGetItemsMessage, this, std::placeholders::_2, std::move(handler)));
+        std::bind(&EndPoint::OnGetItemsMessage, this, std::placeholders::_2, std::move(handler)));
   }
 
   void RegisterPutItemHandler(PutItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/PUT",
-        std::bind(&ResourceRequestHandler::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
+        std::bind(&EndPoint::OnPutMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
   void RegisterDeleteItemHandler(DeleteItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/DELETE",
-        std::bind(&ResourceRequestHandler::OnDeleteMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
+        std::bind(&EndPoint::OnDeleteMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
   }
 
   template <typename T>
   void PublishEvent(const Event<User>& event) {
-    const auto object = ToJson<T>(event.object);
+    const auto object = Serialize<T>(event.object);
     ThrowIfNotValid<T, HttpMethod::GET>(object);
 
     tao::json::value event_json = {
@@ -74,6 +74,44 @@ public:
     }
 
     mqtt_client_.Publish(root_topic_ + "/event/" + resource_name_, tao::json::to_string(event_json));
+  }
+
+  template <typename T>
+  static std::function<void(ReadItemStatus status_code, const std::vector<std::reference_wrapper<const T>>& items)> CreateGetItemsWrapperCallback(GetItemsCallback callback) {
+    return [callback = std::move(callback)](ReadItemStatus status_code, const std::vector<std::reference_wrapper<const T>>& items) {
+      tao::json::value object = tao::json::empty_array;
+
+      try {
+        std::vector< tao::json::value> array;
+        for (auto&& item : items) {
+          array.emplace_back(Serialize<T>(item));
+          ThrowIfNotValid<T, HttpMethod::GET>(array.back());
+        }
+        object = array;
+      } catch (const std::exception&) {
+        status_code = ReadItemStatus::InternalError;
+        object = tao::json::empty_array;
+      }
+
+      callback(status_code, object);
+    };
+  }
+
+  template <typename T>
+  static std::function<void(ReadItemStatus status_code, boost::optional<const T&> item)> CreateGetItemWrapperCallback(GetItemCallback callback) {
+    return [callback = std::move(callback)](ReadItemStatus status_code, boost::optional<const T&> item) {
+      tao::json::value object = tao::json::null;
+
+      try {
+        object = Serialize<T>(item.value());
+        ThrowIfNotValid<T, HttpMethod::GET>(object);
+      } catch (const std::exception&) {
+        status_code = item ? ReadItemStatus::InternalError : ReadItemStatus::ItemDoesntExist;
+        object = tao::json::null;
+      }
+
+      callback(status_code, object);
+    };
   }
 
 protected:
@@ -266,4 +304,4 @@ private:
   std::string resource_name_;
 };
 
-#endif // HTTP2MQTTBRIDGE_RESOURCE_REQUEST_HANDLER_H
+#endif // HTTP2MQTTBRIDGE_MQTT_RESOURCE_H

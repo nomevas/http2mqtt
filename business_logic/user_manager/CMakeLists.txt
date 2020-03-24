@@ -2,7 +2,7 @@ project(user_manager)
 
 add_library(${PROJECT_NAME} user_manager.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC .)
-target_link_libraries(${PROJECT_NAME} PUBLIC pthread mqtt_client domain_objects request_handler)
+target_link_libraries(${PROJECT_NAME} PUBLIC pthread mqtt_client domain_objects endpoints)
 
 add_executable(${PROJECT_NAME}_test user_manager_unittest.cpp)
 target_include_directories(${PROJECT_NAME}_test PRIVATE ${Boost_INCLUDE_DIRS})

@@ -13,12 +13,12 @@
 
 class Http2MqttBridge {
 public:
-  Http2MqttBridge(const Topic& request_root_topic,
+  Http2MqttBridge(const Topic& root_topic,
       std::shared_ptr<HttpServer> http_server,
       std::shared_ptr<MqttClient> mqtt_client);
 
 private:
-  Topic request_root_topic_;
+  Topic root_topic_;
   std::shared_ptr<HttpServer> http_server_;
   std::shared_ptr<MqttClient> mqtt_client_;
 };

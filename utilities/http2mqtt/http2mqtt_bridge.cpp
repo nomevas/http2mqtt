@@ -9,11 +9,12 @@
 #include <iostream>
 
 Http2MqttBridge::Http2MqttBridge(
-    const Topic& request_root_topic, std::shared_ptr<HttpServer> http_server, std::shared_ptr<MqttClient> mqtt_client)
-    : request_root_topic_{request_root_topic}
+    const Topic&root_topic, std::shared_ptr<HttpServer> http_server, std::shared_ptr<MqttClient> mqtt_client)
+    : root_topic_{root_topic}
     , mqtt_client_{mqtt_client}
     , http_server_{http_server} {
-  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic = request_root_topic_](SessionID session_id, const Request & request) {
+  http_server_->SetRequestHandler([mqtt_client = mqtt_client_, root_topic =
+                                       root_topic_](SessionID session_id, const Request & request) {
     try {
       tao::json::value request_json({
           {"session_id", session_id}
@@ -41,7 +42,8 @@ Http2MqttBridge::Http2MqttBridge(
     }
   });
 
-  mqtt_client_->Subscribe(request_root_topic_ + "/response", [http_server = http_server_](const Topic& topic, const Message& message) {
+  mqtt_client_->Subscribe(
+      root_topic_ + "/response", [http_server = http_server_](const Topic& topic, const Message& message) {
     try {
       const tao::json::value response_json = tao::json::from_string(message);
 
@@ -64,7 +66,8 @@ Http2MqttBridge::Http2MqttBridge(
     }
   });
 
-  mqtt_client_->Subscribe(request_root_topic_ + "/event/#", [](const Topic& topic, const Message& message) {
+  mqtt_client_->Subscribe(
+      root_topic_ + "/event/#", [](const Topic& topic, const Message& message) {
     try {
       std::cout << "[" << topic << "]: " << message << std::endl;
     } catch (const std::exception& ex) {

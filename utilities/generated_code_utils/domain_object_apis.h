@@ -21,6 +21,6 @@ static void ThrowIfNotValid(const tao::json::value& json) {}
 template <typename T>
 static T Parse(const tao::json::value& json);
 template <typename T>
-static tao::json::value ToJson(const T& object);
+static tao::json::value Serialize(const T& object);
 
 #endif // HTTP2MQTTBRIDGE_UTILITIES_H

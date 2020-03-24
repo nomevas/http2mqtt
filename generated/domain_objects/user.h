@@ -39,7 +39,7 @@ User Parse<User>(const tao::json::value& json) {
 }
 
 template <>
-tao::json::value ToJson<User>(const User& object) {
+tao::json::value Serialize<User>(const User& object) {
   tao::json::value return_value;
 
   if (object.id) {
