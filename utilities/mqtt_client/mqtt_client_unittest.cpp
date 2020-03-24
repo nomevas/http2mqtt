@@ -32,8 +32,6 @@ TEST_P(FilterTests, Body) {
   MQTT_NS::buffer topic(boost::string_view(std::get<1>(params)));
   MQTT_NS::buffer message(boost::string_view("message"));
   mqtt_client.OnPublished(topic, message);
-  if (wildcard_value)
-    std::cout << "wildcard_value: " << *wildcard_value << std::endl;
   EXPECT_EQ(std::get<2>(params), wildcard_value);
 }
 

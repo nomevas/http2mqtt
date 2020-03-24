@@ -15,7 +15,8 @@ UserManager::UserManager(boost::asio::io_context& ioc)
 void UserManager::AddUser(User user, CreateItemCallback callback) {
     ioc_.post([this, user = std::move(user), callback = std::move(callback)]() mutable {
       user.id = boost::uuids::random_generator()();
-      users_[user.id.get()] = user;
+      users_[user.id.value()] = user;
+      user_event_stream_(Event<User>{EventType::Created, user.id.value(), user});
       callback(CreateItemStatus::Success, user.id.get());
     });
 }
@@ -30,6 +31,7 @@ void UserManager::UpdateUser(boost::uuids::uuid id, User user, UpdateItemCallbac
       if (user.age) {
         it->second.age = user.age;
       }
+      user_event_stream_(Event<User>{EventType::Updated, it->second.id.value(), user});
       callback(UpdateItemStatus ::Success);
     } else {
       callback(UpdateItemStatus ::ItemDoesntExist);
@@ -60,11 +62,17 @@ void UserManager::GetUsers(boost::uuids::uuid, std::vector<boost::uuids::uuid>, 
 
 void UserManager::RemoveUser(const boost::uuids::uuid id, DeleteItemCallback callback) {
   ioc_.post([this, id = std::move(id), callback = std::move(callback)]() mutable {
-    if (users_.find(id) != users_.end()) {
-      users_.erase(id);
+    auto it = users_.find(id);
+    if (it != users_.end()) {
+      user_event_stream_(Event<User>{EventType::Deleted, it->second.id.value(), it->second});
+      users_.erase(it);
       callback(DeleteItemStatus::Success);
     } else {
       callback(DeleteItemStatus::ItemDoesntExist);
     }
   });
+}
+
+boost::signals2::connection UserManager::ConnectToUserEventStream(std::function<void(Event<User>)> sink) {
+  return user_event_stream_.connect(sink);
 }

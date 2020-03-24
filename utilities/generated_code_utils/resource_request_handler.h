@@ -6,7 +6,7 @@
 #define HTTP2MQTTBRIDGE_RESOURCE_REQUEST_HANDLER_H
 
 #include <mqtt_client.h>
-#include <iostream>
+
 class ResourceRequestHandler {
 public:
   using PostItemCallback = std::function<void(CreateItemStatus status_code, const boost::uuids::uuid&)>;
@@ -49,6 +49,31 @@ public:
   void RegisterDeleteItemHandler(DeleteItemHandler handler) {
     mqtt_client_.Subscribe(root_topic_ + "/api/" + resource_name_ + "/+/DELETE",
         std::bind(&ResourceRequestHandler::OnDeleteMessage, this, std::placeholders::_1, std::placeholders::_2, std::move(handler)));
+  }
+
+  template <typename T>
+  void PublishEvent(const Event<User>& event) {
+    const auto object = ToJson<T>(event.object);
+    ThrowIfNotValid<T, HttpMethod::GET>(object);
+
+    tao::json::value event_json = {
+        {"id", boost::lexical_cast<std::string>(event.id)}
+    };
+    switch (event.type) {
+    case EventType::Created:
+      event_json["event_type"] = "Created";
+      event_json["payload"] = tao::json::to_string(object);
+      break;
+    case EventType::Updated:
+      event_json["event_type"] = "Updated";
+      event_json["payload"] = tao::json::to_string(object);
+      break;
+    case EventType::Deleted:
+      event_json["event_type"] = "Deleted";
+      break;
+    }
+
+    mqtt_client_.Publish(root_topic_ + "/event/" + resource_name_, tao::json::to_string(event_json));
   }
 
 protected:
@@ -180,7 +205,7 @@ protected:
         response["body"] = "{\"error\": \"Internal Error\"}";
         break;
       }
-      std::cout << "response: " << response << std::endl;
+
       mqtt_client.Publish(root_topic + "/response", tao::json::to_string(response));
     };
   }

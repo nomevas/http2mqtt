@@ -63,4 +63,12 @@ Http2MqttBridge::Http2MqttBridge(
       std::cout << "Handle response exception: " << ex.what() << std::endl;
     }
   });
+
+  mqtt_client_->Subscribe(request_root_topic_ + "/event/#", [](const Topic& topic, const Message& message) {
+    try {
+      std::cout << "[" << topic << "]: " << message << std::endl;
+    } catch (const std::exception& ex) {
+      std::cout << "Handle event exception: " << ex.what() << std::endl;
+    }
+  });
 }

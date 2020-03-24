@@ -26,6 +26,8 @@ public:
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     RegisterDeleteItemHandler(std::bind(&UserRequestHandler::DeleteUser, this,
         std::placeholders::_1, std::placeholders::_2));
+    handler_.ConnectToUserEventStream(std::bind(&ResourceRequestHandler::PublishEvent<User>,
+        this, std::placeholders::_1));
   }
 
 protected:
@@ -42,7 +44,7 @@ protected:
         object = ToJson<User>(user.value());
         ThrowIfNotValid<User, HttpMethod::GET>(object);
       } catch (const std::exception&) {
-        status_code = ReadItemStatus::InternalError;
+        status_code = user ? ReadItemStatus::InternalError : ReadItemStatus::ItemDoesntExist;
         object = tao::json::null;
       }
 
