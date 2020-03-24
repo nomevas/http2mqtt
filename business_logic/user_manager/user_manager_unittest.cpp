@@ -51,7 +51,7 @@ TEST(UserManagerTests, GetUser__UserExist__CallbackWithUserObjectCalled) {
 
   ASSERT_TRUE(user_uuid2);
   User result;
-  user_manager.GetUser(*user_uuid2, [&](ReadItemStatus status_code, boost::optional<const User&> user){
+  user_manager.GetUser(*user_uuid2, [&](GetItemStatus status_code, boost::optional<const User&> user){
     result = *user;
   });
 
@@ -66,16 +66,16 @@ TEST(UserManagerTests, GetUser__UserExist__CallbackWithUserObjectCalled) {
 TEST(UserManagerTests, GetUser__UserDoesntExist__CallbackWithNoneCalled) {
   boost::asio::io_context ioc{1};
   UserManager user_manager{ioc};
-  ReadItemStatus status_code;
+  GetItemStatus status_code;
   boost::optional<User> result;
-  user_manager.GetUser(boost::uuids::random_generator()(), [&](ReadItemStatus code, boost::optional<const User&> user){
+  user_manager.GetUser(boost::uuids::random_generator()(), [&](GetItemStatus code, boost::optional<const User&> user){
     status_code = code;
     result = user;
   });
 
   ioc.run_one();
 
-  EXPECT_EQ(ReadItemStatus::ItemDoesntExist, status_code);
+  EXPECT_EQ(GetItemStatus::ItemDoesntExist, status_code);
   EXPECT_FALSE(result);
 }
 
@@ -102,7 +102,7 @@ TEST(UserManagerTests, GetUsers__Nominal__CallbackWithAllUsersCalled) {
 
   ASSERT_TRUE(user_uuid2);
   std::vector<std::reference_wrapper<const User>> users;
-  user_manager.GetUsers({}, {}, [&](ReadItemStatus, const std::vector<std::reference_wrapper<const User>>& local_users){
+  user_manager.GetUsers({}, {}, [&](GetItemStatus, const std::vector<std::reference_wrapper<const User>>& local_users){
     users = local_users;
   });
 
@@ -150,7 +150,7 @@ TEST(UserManagerTests, UpdateUser__UserExist__CallbackCalled) {
   ASSERT_EQ(UpdateItemStatus::Success, *update_code);
 
   boost::optional<User> updated_user;
-  user_manager.GetUser(*user_uuid, [&](ReadItemStatus code, boost::optional<const User&> user){
+  user_manager.GetUser(*user_uuid, [&](GetItemStatus code, boost::optional<const User&> user){
     updated_user = user;
   });
 
@@ -194,7 +194,7 @@ TEST(UserManagerTests, RemoveUser__UserExist__UserRemoved_CallbackCalled) {
 
   boost::optional<User> updated_user;
   std::vector<std::reference_wrapper<const User>> users;
-  user_manager.GetUsers({}, {}, [&](ReadItemStatus, const std::vector<std::reference_wrapper<const User>>& local_users){
+  user_manager.GetUsers({}, {}, [&](GetItemStatus, const std::vector<std::reference_wrapper<const User>>& local_users){
     users = local_users;
   });
 

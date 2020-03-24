@@ -7,15 +7,11 @@
 
 #include <boost/optional.hpp>
 
-enum class EventType {
-  Created,
-  Updated,
-  Deleted
-};
+#include "action_type.h"
 
 template <typename T>
 struct Event {
-  EventType type;
+  ActionType action_type;
   boost::uuids::uuid id;
   const T& object;
 };

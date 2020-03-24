@@ -2,8 +2,8 @@
 // Created by nomenas on 16-03-20.
 //
 
-#ifndef HTTP2MQTTBRIDGE_CRUD_STATUS_CODES_H
-#define HTTP2MQTTBRIDGE_CRUD_STATUS_CODES_H
+#ifndef HTTP2MQTTBRIDGE_ACTION_STATUS_CODES_H
+#define HTTP2MQTTBRIDGE_ACTION_STATUS_CODES_H
 
 enum class CreateItemStatus {
   Success,
@@ -12,7 +12,7 @@ enum class CreateItemStatus {
   OutOfMemory
 };
 
-enum class ReadItemStatus {
+enum class GetItemStatus {
   Success,
   ItemDoesntExist,
   OperationForbidden,
@@ -32,4 +32,4 @@ enum class DeleteItemStatus {
   OperationForbidden
 };
 
-#endif // HTTP2MQTTBRIDGE_CRUD_STATUS_CODES_H
+#endif // HTTP2MQTTBRIDGE_ACTION_STATUS_CODES_H

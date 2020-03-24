@@ -32,7 +32,7 @@ public:
 
 protected:
   void CreateUser(const tao::json::value& body, PostItemCallback callback) {
-    ThrowIfNotValid<User, HttpMethod::POST>(body);
+    ThrowIfNotValid<User, ActionType::Create>(body);
     handler_.AddUser(Parse<User>(body), std::move(callback));
   }
 
@@ -45,7 +45,7 @@ protected:
   }
 
   void UpdateUser(const boost::uuids::uuid& uuid, const tao::json::value& body, PutItemCallback callback) {
-    ThrowIfNotValid<User, HttpMethod::PUT>(body);
+    ThrowIfNotValid<User, ActionType::Update>(body);
     handler_.UpdateUser(uuid, Parse<User>(body), std::move(callback));
   }
 

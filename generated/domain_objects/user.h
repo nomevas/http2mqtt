@@ -17,7 +17,7 @@ struct User {
 };
 
 template <>
-void ThrowIfNotValid<User, HttpMethod::POST>(const tao::json::value& json) {
+void ThrowIfNotValid<User, ActionType::Create>(const tao::json::value& json) {
   if (!json.find("name")) {
     throw std::runtime_error("User.name is mandatory field!");
   }

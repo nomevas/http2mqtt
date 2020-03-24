@@ -11,9 +11,9 @@ class EndPoint {
 public:
   using PostItemCallback = std::function<void(CreateItemStatus status_code, const boost::uuids::uuid&)>;
   using PostItemHandler = std::function<void(const tao::json::value& body, PostItemCallback callback)>;
-  using GetItemCallback = std::function<void(ReadItemStatus status_code, const tao::json::value& object)>;
+  using GetItemCallback = std::function<void(GetItemStatus status_code, const tao::json::value& object)>;
   using GetItemHandler = std::function<void(const boost::uuids::uuid&, GetItemCallback)>;
-  using GetItemsCallback = std::function<void(ReadItemStatus status_code, const tao::json::value& object)>;
+  using GetItemsCallback = std::function<void(GetItemStatus status_code, const tao::json::value& object)>;
   using GetItemsHandler = std::function<void(const boost::uuids::uuid& cursor,
       const std::vector<boost::uuids::uuid>& ids, GetItemsCallback callback)>;
   using PutItemCallback = std::function<void(UpdateItemStatus status_code)>;
@@ -54,21 +54,21 @@ public:
   template <typename T>
   void PublishEvent(const Event<User>& event) {
     const auto object = Serialize<T>(event.object);
-    ThrowIfNotValid<T, HttpMethod::GET>(object);
+    ThrowIfNotValid<T, ActionType::Get>(object);
 
     tao::json::value event_json = {
         {"id", boost::lexical_cast<std::string>(event.id)}
     };
-    switch (event.type) {
-    case EventType::Created:
+    switch (event.action_type) {
+    case ActionType::Create:
       event_json["event_type"] = "Created";
       event_json["payload"] = tao::json::to_string(object);
       break;
-    case EventType::Updated:
+    case ActionType::Update:
       event_json["event_type"] = "Updated";
       event_json["payload"] = tao::json::to_string(object);
       break;
-    case EventType::Deleted:
+    case ActionType::Delete:
       event_json["event_type"] = "Deleted";
       break;
     }
@@ -77,19 +77,19 @@ public:
   }
 
   template <typename T>
-  static std::function<void(ReadItemStatus status_code, const std::vector<std::reference_wrapper<const T>>& items)> CreateGetItemsWrapperCallback(GetItemsCallback callback) {
-    return [callback = std::move(callback)](ReadItemStatus status_code, const std::vector<std::reference_wrapper<const T>>& items) {
+  static std::function<void(GetItemStatus status_code, const std::vector<std::reference_wrapper<const T>>& items)> CreateGetItemsWrapperCallback(GetItemsCallback callback) {
+    return [callback = std::move(callback)](GetItemStatus status_code, const std::vector<std::reference_wrapper<const T>>& items) {
       tao::json::value object = tao::json::empty_array;
 
       try {
         std::vector< tao::json::value> array;
         for (auto&& item : items) {
           array.emplace_back(Serialize<T>(item));
-          ThrowIfNotValid<T, HttpMethod::GET>(array.back());
+          ThrowIfNotValid<T, ActionType::Get>(array.back());
         }
         object = array;
       } catch (const std::exception&) {
-        status_code = ReadItemStatus::InternalError;
+        status_code = GetItemStatus::InternalError;
         object = tao::json::empty_array;
       }
 
@@ -98,15 +98,15 @@ public:
   }
 
   template <typename T>
-  static std::function<void(ReadItemStatus status_code, boost::optional<const T&> item)> CreateGetItemWrapperCallback(GetItemCallback callback) {
-    return [callback = std::move(callback)](ReadItemStatus status_code, boost::optional<const T&> item) {
+  static std::function<void(GetItemStatus status_code, boost::optional<const T&> item)> CreateGetItemWrapperCallback(GetItemCallback callback) {
+    return [callback = std::move(callback)](GetItemStatus status_code, boost::optional<const T&> item) {
       tao::json::value object = tao::json::null;
 
       try {
         object = Serialize<T>(item.value());
-        ThrowIfNotValid<T, HttpMethod::GET>(object);
+        ThrowIfNotValid<T, ActionType::Get>(object);
       } catch (const std::exception&) {
-        status_code = item ? ReadItemStatus::InternalError : ReadItemStatus::ItemDoesntExist;
+        status_code = item ? GetItemStatus::InternalError : GetItemStatus::ItemDoesntExist;
         object = tao::json::null;
       }
 
@@ -224,21 +224,21 @@ protected:
 
   GetItemCallback GetGetItemCallback(tao::json::value response) {
     return [mqtt_client = mqtt_client_, root_topic = root_topic_, response = std::move(response)](
-        ReadItemStatus status_code, const tao::json::value& object) mutable {
+        GetItemStatus status_code, const tao::json::value& object) mutable {
       switch (status_code) {
-      case ReadItemStatus::Success:
+      case GetItemStatus::Success:
         response["status"] = 200;
         response["body"] = object;
         break;
-      case ReadItemStatus::ItemDoesntExist:
+      case GetItemStatus::ItemDoesntExist:
         response["status"] = 404;
         response["body"] = "{\"error\": \"Item doesn't exist\"}";
         break;
-      case ReadItemStatus::OperationForbidden:
+      case GetItemStatus::OperationForbidden:
         response["status"] = 403;
         response["body"] = "{\"error\": \"Operation forbidden\"}";
         break;
-      case ReadItemStatus::InternalError:
+      case GetItemStatus::InternalError:
         response["status"] = 500;
         response["body"] = "{\"error\": \"Internal Error\"}";
         break;

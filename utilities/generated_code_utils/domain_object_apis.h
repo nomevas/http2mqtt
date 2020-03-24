@@ -9,14 +9,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-enum class HttpMethod {
-  POST,
-  PUT,
-  GET,
-  DELETE
-};
+#include "action_type.h"
 
-template <typename T, HttpMethod Method>
+template <typename T, ActionType>
 static void ThrowIfNotValid(const tao::json::value& json) {}
 template <typename T>
 static T Parse(const tao::json::value& json);
